@@ -1,8 +1,9 @@
 import os
 from datetime import time
 
-import anthropic
 import streamlit as st
+from dotenv import load_dotenv
+from google import genai
 from pawpal_system import Frequency
 from pawpal_system import Task
 from pawpal_system import Pet
@@ -10,6 +11,8 @@ from pawpal_system import Owner
 from pawpal_system import Scheduler
 from care_assistant import CareAssistant
 
+
+load_dotenv()
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -25,9 +28,9 @@ if "owner" not in st.session_state:
 if "scheduler" not in st.session_state:
     st.session_state.scheduler = Scheduler(owner=st.session_state.owner)
 if "care_assistant" not in st.session_state:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY")
     st.session_state.care_assistant = (
-        CareAssistant(client=anthropic.Anthropic(api_key=api_key)) if api_key else None
+        CareAssistant(client=genai.Client(api_key=api_key)) if api_key else None
     )
 
 st.session_state.owner.name = owner_name
@@ -133,7 +136,7 @@ else:
     st.markdown("### Ask PawPal")
     assistant = st.session_state.care_assistant
     if assistant is None:
-        st.warning("Set the ANTHROPIC_API_KEY environment variable to enable Ask PawPal.")
+        st.warning("Set the GEMINI_API_KEY environment variable to enable Ask PawPal.")
     else:
         question = st.text_input(f"Ask a question about {selected_pet_name}", key="assistant_question")
         if st.button("Ask", disabled=not question.strip()):

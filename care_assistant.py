@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
 from typing import List
 
+from google.genai import types
+
 from pawpal_system import CareNote, Pet
 from retrieval import NoteRetriever
 
-DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
 NO_NOTES_ANSWER = (
     "I don't have any care notes for {pet_name} yet that relate to this question. "
@@ -44,11 +46,14 @@ class CareAssistant:
         notes_block = "\n".join(f"- ({note.date}) {note.text}" for note in cited_notes)
         user_content = f"Care notes for {pet.name}:\n{notes_block}\n\nQuestion: {question}"
 
-        response = self.client.messages.create(
+        response = self.client.models.generate_content(
             model=self.model,
-            max_tokens=512,
-            system=SYSTEM_PROMPT.format(pet_name=pet.name, pet_age=pet.age, pet_species=pet.species),
-            messages=[{"role": "user", "content": user_content}],
+            contents=user_content,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT.format(
+                    pet_name=pet.name, pet_age=pet.age, pet_species=pet.species
+                ),
+                max_output_tokens=512,
+            ),
         )
-        answer_text = response.content[0].text
-        return AssistantAnswer(answer=answer_text, cited_notes=cited_notes)
+        return AssistantAnswer(answer=response.text, cited_notes=cited_notes)

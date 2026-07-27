@@ -13,7 +13,7 @@ def make_pet(*note_texts, name="Rex"):
 
 def make_client(answer_text: str) -> MagicMock:
     client = MagicMock()
-    client.messages.create.return_value = MagicMock(content=[MagicMock(text=answer_text)])
+    client.models.generate_content.return_value = MagicMock(text=answer_text)
     return client
 
 
@@ -24,7 +24,7 @@ def test_no_notes_short_circuits_without_calling_the_api():
 
     result = assistant.ask(pet, "should I be worried about Rex?")
 
-    client.messages.create.assert_not_called()
+    client.models.generate_content.assert_not_called()
     assert result.cited_notes == []
     assert pet.name in result.answer
 
@@ -43,11 +43,11 @@ def test_ask_grounds_the_prompt_in_only_this_pets_retrieved_notes():
     assert len(result.cited_notes) == 1
     assert "peanut" in result.cited_notes[0].text
 
-    client.messages.create.assert_called_once()
-    call_kwargs = client.messages.create.call_args.kwargs
+    client.models.generate_content.assert_called_once()
+    call_kwargs = client.models.generate_content.call_args.kwargs
     assert call_kwargs["model"] == DEFAULT_MODEL
-    assert pet.name in call_kwargs["system"]
+    assert pet.name in call_kwargs["config"].system_instruction
 
-    user_content = call_kwargs["messages"][0]["content"]
+    user_content = call_kwargs["contents"]
     assert "peanut" in user_content
     assert "long walks" not in user_content
