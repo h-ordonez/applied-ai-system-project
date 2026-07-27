@@ -1,11 +1,14 @@
+import os
 from datetime import time
 
+import anthropic
 import streamlit as st
 from pawpal_system import Frequency
 from pawpal_system import Task
 from pawpal_system import Pet
 from pawpal_system import Owner
 from pawpal_system import Scheduler
+from care_assistant import CareAssistant
 
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
@@ -21,6 +24,11 @@ if "owner" not in st.session_state:
     st.session_state.owner = Owner(name=owner_name)
 if "scheduler" not in st.session_state:
     st.session_state.scheduler = Scheduler(owner=st.session_state.owner)
+if "care_assistant" not in st.session_state:
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    st.session_state.care_assistant = (
+        CareAssistant(client=anthropic.Anthropic(api_key=api_key)) if api_key else None
+    )
 
 st.session_state.owner.name = owner_name
 
@@ -100,6 +108,42 @@ else:
                     st.rerun()
     else:
         st.info(f"No tasks yet for {selected_pet_name}. Add one above.")
+
+    st.markdown("### Care notes")
+    note_text = st.text_area(
+        "Add a care note",
+        placeholder="e.g. Vet says Rex needs a bland diet through Friday.",
+        key="new_care_note",
+    )
+    if st.button("Add note"):
+        if note_text.strip():
+            selected_pet.addCareNote(note_text.strip())
+            st.success(f"Added note for {selected_pet_name}.")
+            st.rerun()
+        else:
+            st.warning("Note can't be empty.")
+
+    if selected_pet.careNotes:
+        st.write("Existing notes:")
+        for note in selected_pet.careNotes:
+            st.caption(f"{note.date}: {note.text}")
+    else:
+        st.info(f"No care notes yet for {selected_pet_name}.")
+
+    st.markdown("### Ask PawPal")
+    assistant = st.session_state.care_assistant
+    if assistant is None:
+        st.warning("Set the ANTHROPIC_API_KEY environment variable to enable Ask PawPal.")
+    else:
+        question = st.text_input(f"Ask a question about {selected_pet_name}", key="assistant_question")
+        if st.button("Ask", disabled=not question.strip()):
+            with st.spinner("Thinking..."):
+                result = assistant.ask(selected_pet, question)
+            st.write(result.answer)
+            if result.cited_notes:
+                with st.expander("Based on these notes"):
+                    for note in result.cited_notes:
+                        st.caption(f"{note.date}: {note.text}")
 
 st.divider()
 
