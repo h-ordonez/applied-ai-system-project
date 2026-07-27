@@ -39,12 +39,28 @@ class Task:
 
 
 @dataclass
+class CareNote:
+    """A free-text note about a pet: vet visit summary, medication instructions, behavior, etc."""
+    text: str
+    date: date = field(default_factory=date.today)
+
+
+@dataclass
 class Pet:
     name: str
     species: str
     age: int
     # Pet is the single store for its own tasks.
     taskList: List[Task] = field(default_factory=list)
+    # Pet is also the single store for its own care notes, the knowledge base
+    # the care assistant retrieves from.
+    careNotes: List[CareNote] = field(default_factory=list)
+
+    def addCareNote(self, text: str) -> CareNote:
+        """Record a new free-text care note for this pet."""
+        note = CareNote(text=text)
+        self.careNotes.append(note)
+        return note
 
 
 @dataclass
