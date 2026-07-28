@@ -1,0 +1,58 @@
+flowchart TD
+    Owner(["Pet owner (human)"])
+
+    subgraph UI["app.py — Streamlit UI"]
+        NoteInput["Care note textarea"]
+        QInput["Ask PawPal question input"]
+        AnswerView["Answer + cited notes view"]
+    end
+
+    subgraph Validation["Input validation"]
+        ValidateNote["Pet.addCareNote()\nstrip / length cap / has-letters check"]
+        ValidateQ["CareAssistant.ask()\nstrip / length cap / has-letters check"]
+    end
+
+    subgraph Data["pawpal_system.py"]
+        KB[("Pet.careNotes\n(care note knowledge base)")]
+    end
+
+    subgraph RAG["Retrieval-augmented generation"]
+        Retriever["retrieval.py\nNoteRetriever\nTF-IDF + cosine similarity, per-pet scoped"]
+        Assistant["care_assistant.py\nCareAssistant\nbuilds grounded prompt"]
+        LLM["Gemini LLM\ngemini-3.5-flash-lite"]
+    end
+
+    Canned["Canned no-notes response\n(no LLM call)"]
+
+    %% Note-taking flow
+    Owner -->|"writes free-text note"| NoteInput
+    NoteInput --> ValidateNote
+    ValidateNote -->|"invalid: st.warning()"| Owner
+    ValidateNote -->|"valid, stripped text"| KB
+
+    %% Question flow
+    Owner -->|"asks a question"| QInput
+    QInput --> ValidateQ
+    ValidateQ -->|"invalid: st.warning()"| Owner
+    ValidateQ -->|"valid question"| Retriever
+    KB -->|"that pet's notes only"| Retriever
+    Retriever -->|"top-k relevant notes"| Assistant
+    Retriever -->|"zero relevant notes"| Canned
+    Canned --> AnswerView
+    Assistant -->|"system prompt: notes-only,\ndefer to vet if urgent"| LLM
+    LLM -->|"generated answer"| Assistant
+    Assistant -->|"answer + cited notes"| AnswerView
+    AnswerView -->|"reads answer, checks cited notes,\nconsults vet if urgent"| Owner
+
+    %% Testing checkpoints
+    Tests["Test suite (17 tests)\ntest_pawpal_system.py\ntest_retrieval.py\ntest_care_assistant.py"]
+    Tests -.->|"verifies"| ValidateNote
+    Tests -.->|"verifies"| Retriever
+    Tests -.->|"verifies (mocked LLM)"| Assistant
+
+    classDef human fill:#f9e79f,stroke:#b7950b,color:#000;
+    classDef check fill:#d5f5e3,stroke:#1e8449,color:#000;
+    classDef llm fill:#d6eaf8,stroke:#2471a3,color:#000;
+    class Owner human;
+    class ValidateNote,ValidateQ,Tests check;
+    class LLM llm;
