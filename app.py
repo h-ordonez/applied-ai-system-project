@@ -4,12 +4,14 @@ from datetime import time
 import streamlit as st
 from dotenv import load_dotenv
 from google import genai
+from pawpal_system import CARE_NOTE_MAX_LENGTH
 from pawpal_system import Frequency
 from pawpal_system import Task
 from pawpal_system import Pet
 from pawpal_system import Owner
 from pawpal_system import Scheduler
 from care_assistant import CareAssistant
+from care_assistant import QUESTION_MAX_LENGTH
 
 
 load_dotenv()
@@ -116,15 +118,16 @@ else:
     note_text = st.text_area(
         "Add a care note",
         placeholder="e.g. Vet says Rex needs a bland diet through Friday.",
+        max_chars=CARE_NOTE_MAX_LENGTH,
         key="new_care_note",
     )
     if st.button("Add note"):
-        if note_text.strip():
-            selected_pet.addCareNote(note_text.strip())
+        try:
+            selected_pet.addCareNote(note_text)
             st.success(f"Added note for {selected_pet_name}.")
             st.rerun()
-        else:
-            st.warning("Note can't be empty.")
+        except ValueError as e:
+            st.warning(str(e))
 
     if selected_pet.careNotes:
         st.write("Existing notes:")
@@ -138,15 +141,22 @@ else:
     if assistant is None:
         st.warning("Set the GEMINI_API_KEY environment variable to enable Ask PawPal.")
     else:
-        question = st.text_input(f"Ask a question about {selected_pet_name}", key="assistant_question")
+        question = st.text_input(
+            f"Ask a question about {selected_pet_name}",
+            max_chars=QUESTION_MAX_LENGTH,
+            key="assistant_question",
+        )
         if st.button("Ask", disabled=not question.strip()):
-            with st.spinner("Thinking..."):
-                result = assistant.ask(selected_pet, question)
-            st.write(result.answer)
-            if result.cited_notes:
-                with st.expander("Based on these notes"):
-                    for note in result.cited_notes:
-                        st.caption(f"{note.date}: {note.text}")
+            try:
+                with st.spinner("Thinking..."):
+                    result = assistant.ask(selected_pet, question)
+                st.write(result.answer)
+                if result.cited_notes:
+                    with st.expander("Based on these notes"):
+                        for note in result.cited_notes:
+                            st.caption(f"{note.date}: {note.text}")
+            except ValueError as e:
+                st.warning(str(e))
 
 st.divider()
 

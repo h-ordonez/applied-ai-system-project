@@ -1,6 +1,8 @@
 from unittest.mock import MagicMock
 
-from care_assistant import DEFAULT_MODEL, CareAssistant
+import pytest
+
+from care_assistant import DEFAULT_MODEL, QUESTION_MAX_LENGTH, CareAssistant
 from pawpal_system import Pet
 
 
@@ -51,3 +53,36 @@ def test_ask_grounds_the_prompt_in_only_this_pets_retrieved_notes():
     user_content = call_kwargs["contents"]
     assert "peanut" in user_content
     assert "long walks" not in user_content
+
+
+def test_ask_rejects_empty_question_without_calling_the_api():
+    client = make_client("unused")
+    assistant = CareAssistant(client=client)
+    pet = make_pet("Rex is allergic to peanuts.")
+
+    with pytest.raises(ValueError):
+        assistant.ask(pet, "   ")
+
+    client.models.generate_content.assert_not_called()
+
+
+def test_ask_rejects_question_over_max_length_without_calling_the_api():
+    client = make_client("unused")
+    assistant = CareAssistant(client=client)
+    pet = make_pet("Rex is allergic to peanuts.")
+
+    with pytest.raises(ValueError):
+        assistant.ask(pet, "a" * (QUESTION_MAX_LENGTH + 1))
+
+    client.models.generate_content.assert_not_called()
+
+
+def test_ask_rejects_question_without_letters_without_calling_the_api():
+    client = make_client("unused")
+    assistant = CareAssistant(client=client)
+    pet = make_pet("Rex is allergic to peanuts.")
+
+    with pytest.raises(ValueError):
+        assistant.ask(pet, "12345 !?")
+
+    client.models.generate_content.assert_not_called()

@@ -38,6 +38,9 @@ class Task:
         raise ValueError(f"Unknown frequency: {self.frequency}")
 
 
+CARE_NOTE_MAX_LENGTH = 140
+
+
 @dataclass
 class CareNote:
     """A free-text note about a pet: vet visit summary, medication instructions, behavior, etc."""
@@ -58,7 +61,14 @@ class Pet:
 
     def addCareNote(self, text: str) -> CareNote:
         """Record a new free-text care note for this pet."""
-        note = CareNote(text=text)
+        stripped = text.strip()
+        if not stripped:
+            raise ValueError("Care note cannot be empty.")
+        if len(stripped) > CARE_NOTE_MAX_LENGTH:
+            raise ValueError(f"Care note cannot exceed {CARE_NOTE_MAX_LENGTH} characters.")
+        if not any(c.isalpha() for c in stripped):
+            raise ValueError("Care note must contain at least one letter.")
+        note = CareNote(text=stripped)
         self.careNotes.append(note)
         return note
 

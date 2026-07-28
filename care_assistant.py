@@ -8,6 +8,8 @@ from retrieval import NoteRetriever
 
 DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
+QUESTION_MAX_LENGTH = 300
+
 NO_NOTES_ANSWER = (
     "I don't have any care notes for {pet_name} yet that relate to this question. "
     "Add a care note below, or check with your vet directly."
@@ -39,12 +41,20 @@ class CareAssistant:
         self.model = model
 
     def ask(self, pet: Pet, question: str) -> AssistantAnswer:
-        cited_notes = self.retriever.retrieve(pet, question)
+        stripped = question.strip()
+        if not stripped:
+            raise ValueError("Question cannot be empty.")
+        if len(stripped) > QUESTION_MAX_LENGTH:
+            raise ValueError(f"Question cannot exceed {QUESTION_MAX_LENGTH} characters.")
+        if not any(c.isalpha() for c in stripped):
+            raise ValueError("Question must contain at least one letter.")
+
+        cited_notes = self.retriever.retrieve(pet, stripped)
         if not cited_notes:
             return AssistantAnswer(answer=NO_NOTES_ANSWER.format(pet_name=pet.name), cited_notes=[])
 
         notes_block = "\n".join(f"- ({note.date}) {note.text}" for note in cited_notes)
-        user_content = f"Care notes for {pet.name}:\n{notes_block}\n\nQuestion: {question}"
+        user_content = f"Care notes for {pet.name}:\n{notes_block}\n\nQuestion: {stripped}"
 
         response = self.client.models.generate_content(
             model=self.model,
